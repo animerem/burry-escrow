@@ -3,12 +3,15 @@ use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{program::invoke, system_instruction::transfer};
 
-pub fn deposit_handler(ctx: Context<Deposit>, escrow_amount: u64, unlock_price: f64) -> Result<()> {
+pub fn deposit_handler(ctx: Context<Deposit>, escrow_amount: u64, unlock_price: u64) -> Result<()> {
     msg!("Depositing funds in escrow...");
+
+    require!(escrow_amount > 0, EscrowError::InvalidAmount);
 
     let escrow = &mut ctx.accounts.escrow_account;
     escrow.unlock_price = unlock_price;
     escrow.escrow_amount = escrow_amount;
+    escrow.bump = *ctx.bumps.get("escrow_account").ok_or(EscrowError::BumpNotFound)?;
 
     let transfer_instruction =
         transfer(&ctx.accounts.user.key(), &escrow.key(), escrow_amount);
@@ -22,10 +25,7 @@ pub fn deposit_handler(ctx: Context<Deposit>, escrow_amount: u64, unlock_price: 
         ],
     )?;
 
-    msg!(
-        "Transfer complete. Escrow will unlock SOL at {}",
-        &ctx.accounts.escrow_account.unlock_price
-    );
+    msg!("Transfer complete. Escrow will unlock SOL at price: {}", unlock_price);
 
     Ok(())
 }

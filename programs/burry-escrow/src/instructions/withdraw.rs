@@ -10,9 +10,9 @@ pub fn withdraw_handler(ctx: Context<Withdraw>) -> Result<()> {
     let feed = &ctx.accounts.feed_aggregator.load()?;
     let escrow = &ctx.accounts.escrow_account;
 
-    let current_sol_price: f64 = feed.get_result()?.try_into()?;
+    let current_sol_price_f64: f64 = feed.get_result()?.try_into()?;
+    let current_sol_price: u64 = current_sol_price_f64 as u64;
 
-    // Check if the feed has been updated in the last 5 minutes (300 seconds)
     feed.check_staleness(Clock::get().unwrap().unix_timestamp, 300)
         .map_err(|_| error!(EscrowErrorCode::StaleFeed))?;
 
@@ -25,7 +25,6 @@ pub fn withdraw_handler(ctx: Context<Withdraw>) -> Result<()> {
 
     let escrow_lamports = escrow.escrow_amount;
 
-    // Transfer lamports from escrow to user
     **escrow.to_account_info().try_borrow_mut_lamports()? = escrow
         .to_account_info()
         .lamports()
@@ -43,6 +42,8 @@ pub fn withdraw_handler(ctx: Context<Withdraw>) -> Result<()> {
         .lamports()
         .checked_add(escrow_lamports)
         .ok_or(ProgramError::InvalidArgument)?;
+
+    msg!("Funds successfully withdrawn to user.");
 
     Ok(())
 }
